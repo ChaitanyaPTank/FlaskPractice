@@ -1,14 +1,18 @@
 import functools
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for
+    Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify
 )
+
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from flaskr.db import get_db
 print(__name__)
 bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+
+TAG = "---------------"
 
 
 @bp.route('/register', methods=('GET', 'POST'))
@@ -41,11 +45,14 @@ def register():
     return render_template('auth/register.html')
 
 
-@bp.route('/login', methods=('GET', 'POST'))
+@bp.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        data = request.get_json()
+        print(TAG, data)
+        print(TAG, type(data))
+        username = data['username']
+        password = data['password']
         db = get_db()
         error = None
         user = db.execute(
@@ -60,7 +67,8 @@ def login():
         if error is None:
             session.clear()
             session['user_id'] = user['id']
-            return redirect(url_for('index'))
+            print("SUCCESS!")
+            return redirect(user['id'])
 
         flash(error)
 
@@ -94,3 +102,22 @@ def login_required(view):
         return view(**kwargs)
 
     return wrapped_view
+
+
+@bp.route('/getData/<int:user_id>', methods=['GET'])
+def get_user_data(user_id):
+    print(TAG, user_id)
+    user = get_db().execute(
+        'SELECT * FROM user WHERE id = ?', (user_id, )
+    ).fetchone()
+
+    if user['password']:
+        user.pop('password')
+    print(user)
+
+    if user is not None:
+        print(user)
+        return jsonify(user)
+
+    else:
+        return jsonify('Error!')
